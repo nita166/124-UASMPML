@@ -1,5 +1,5 @@
 # ============================================================
-# 🚖 UBER FARE PREDICTION APP
+# 🚖 APLIKASI PREDIKSI TARIF UBER
 # ============================================================
 
 import streamlit as st
@@ -8,19 +8,17 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 import os
-import requests
-from io import BytesIO
 
 # ============================================================
-# 1️⃣ Custom Function Definitions
+# 1️⃣ Definisi Fungsi Kustom
 # ============================================================
-# Function to calculate Haversine distance between two coordinates
+# Fungsi untuk menghitung jarak Haversine antara dua koordinat
 def haversine(lat1, lon1, lat2, lon2):
     """
-    Calculates the Haversine distance between two sets of coordinates
-    in kilometers.
+    Menghitung jarak Haversine antara dua titik koordinat
+    dalam kilometer.
     """
-    R = 6371  # Earth radius in kilometers
+    R = 6371  # Radius bumi dalam kilometer
     lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
     dlon = lon2 - lon1
     dlat = lat2 - lat1
@@ -29,18 +27,19 @@ def haversine(lat1, lon1, lat2, lon2):
     distance_km = R * c
     return distance_km
 
-# Function to create new features from raw data
+# Fungsi untuk membuat fitur baru dari data mentah
 def create_features(df):
     """
-    Creates the necessary features for the model from raw data.
+    Membuat fitur-fitur baru yang diperlukan oleh model
+    dari data mentah.
     """
     df_copy = df.copy()
 
-    # Check if 'pickup_datetime' column exists, if not, use datetime.now()
+    # Periksa apakah kolom 'pickup_datetime' ada, jika tidak, gunakan datetime.now()
     if 'pickup_datetime' not in df_copy.columns:
         df_copy['pickup_datetime'] = datetime.now()
 
-    # Calculate trip distance
+    # Hitung jarak perjalanan
     df_copy['trip_distance_km'] = df_copy.apply(
         lambda row: haversine(
             row['pickup_latitude'], row['pickup_longitude'],
@@ -48,14 +47,14 @@ def create_features(df):
         ), axis=1
     )
 
-    # Extract time features from 'pickup_datetime'
+    # Ekstrak fitur waktu dari 'pickup_datetime'
     df_copy['year'] = df_copy['pickup_datetime'].dt.year
     df_copy['month'] = df_copy['pickup_datetime'].dt.month
     df_copy['day'] = df_copy['pickup_datetime'].dt.day
     df_copy['dayofweek'] = df_copy['pickup_datetime'].dt.dayofweek
     df_copy['hour'] = df_copy['pickup_datetime'].dt.hour
     
-    # Select features to be used for prediction
+    # Pilih fitur yang akan digunakan untuk prediksi
     features = ['pickup_longitude', 'pickup_latitude', 'dropoff_longitude', 
                 'dropoff_latitude', 'passenger_count', 'trip_distance_km',
                 'year', 'month', 'day', 'dayofweek', 'hour']
@@ -63,51 +62,27 @@ def create_features(df):
     return df_copy[features]
 
 # ============================================================
-# 2️⃣ Load Model Pipeline
+# 2️⃣ Load Model
 # ============================================================
-def download_file(url, destination_path):
-    """
-    Downloads a file from the given URL and saves it to the destination path.
-    """
-    try:
-        response = requests.get(url, stream=True)
-        response.raise_for_status()
-        with open(destination_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-        st.success(f"✅ File '{os.path.basename(destination_path)}' downloaded successfully.")
-    except requests.exceptions.RequestException as e:
-        st.error(f"❌ Error: Failed to download file from URL. {e}")
-        st.stop()
-
-
 @st.cache_resource
-def load_assets():
+def load_model():
     """
-    Loads the saved model pipeline using joblib.
-    If the file does not exist, it tries to download it from the URL.
+    Memuat model Decision Tree yang telah disimpan menggunakan joblib.
     """
-    pipeline_file_name = "pipeline.pkl"
-    
-    # GANTI DENGAN URL UNDUHAN LANGSUNG PIPELINE.PKL ANDA
-    pipeline_url = "https://example.com/your-pipeline-file.pkl"
-    
-    if not os.path.exists(pipeline_file_name):
-        st.info(f"⏳ Downloading pipeline '{pipeline_file_name}'...")
-        download_file(pipeline_url, pipeline_file_name)
-
-    try:
-        pipeline = joblib.load(pipeline_file_name)
-        return pipeline
-    except Exception as e:
-        st.error(f"❌ Failed to load file: {e}")
+    model_path = "model.pkl"
+    if not os.path.exists(model_path):
+        st.error(f"❌ File model '{model_path}' tidak ditemukan.")
         st.stop()
+    return joblib.load(model_path)
 
-# Load model pipeline when the app starts
-pipeline = load_assets()
+try:
+    model = load_model()
+except Exception as e:
+    st.error(f"❌ Gagal memuat model: {e}")
+    st.stop()
 
 # ============================================================
-# 3️⃣ Streamlit App Configuration
+# 3️⃣ Konfigurasi Aplikasi Streamlit
 # ============================================================
 st.set_page_config(
     page_title="Uber Fare Prediction",
@@ -115,17 +90,17 @@ st.set_page_config(
     layout="centered"
 )
 
-st.title("🚖 Uber Fare Prediction App")
+st.title("🚖 Aplikasi Prediksi Tarif Uber")
 st.markdown("Masukkan detail perjalanan Anda untuk memprediksi tarif Uber")
 
 # ============================================================
-# 4️⃣ User Input Form
+# 4️⃣ Form Input Pengguna
 # ============================================================
 with st.form("fare_form"):
-    st.subheader("📝 Trip Details Input")
+    st.subheader("📝 Detail Perjalanan")
     
-    pickup_date = st.date_input("Pickup Date", value=datetime.now().date())
-    pickup_time = st.time_input("Pickup Time", value=datetime.now().time())
+    pickup_date = st.date_input("Tanggal Penjemputan", value=datetime.now().date())
+    pickup_time = st.time_input("Waktu Penjemputan", value=datetime.now().time())
 
     col1, col2 = st.columns(2)
     with col1:
@@ -136,9 +111,9 @@ with st.form("fare_form"):
         dropoff_latitude = st.number_input("Dropoff Latitude", value=40.723217, format="%.6f")
         dropoff_longitude = st.number_input("Dropoff Longitude", value=-73.999512, format="%.6f")
 
-    passenger_count = st.number_input("Passenger Count", min_value=1, max_value=6, value=1)
+    passenger_count = st.number_input("Jumlah Penumpang", min_value=1, max_value=6, value=1)
 
-    submitted = st.form_submit_button("🔮 Predict Fare")
+    submitted = st.form_submit_button("🔮 Prediksi Tarif")
 
     if submitted:
         try:
@@ -155,10 +130,10 @@ with st.form("fare_form"):
             
             processed_data = create_features(input_data)
             
-            prediction = pipeline.predict(processed_data)
+            prediction = model.predict(processed_data)
             
-            st.subheader("✅ Prediction Successful!")
-            st.success(f"Predicted Uber fare: ${prediction[0]:,.2f}")
+            st.subheader("✅ Prediksi Berhasil!")
+            st.success(f"Tarif Uber yang diprediksi: ${prediction[0]:,.2f}")
 
         except Exception as e:
-            st.error(f"❌ Error during prediction: {e}")
+            st.error(f"❌ Terjadi kesalahan saat prediksi: {e}")
